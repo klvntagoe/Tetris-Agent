@@ -1,27 +1,71 @@
+# https://max-we.github.io/Tetris-Gymnasium/environments/tetris/
 import gymnasium as gym
 from tetris_gymnasium.envs import Tetris
+#from tetris_gymnasium.wrappers.observation import RgbObservation
 
-from agent import TetrisAgent
+from agent import DiscreteEpsilonGreedyAgent
 import time
 
-# Create the environmenta and
-env = gym.make("tetris_gymnasium/Tetris", render_mode="ansi")
-agent = TetrisAgent(env.action_space.n);
+def runSingleEpisode(
+        env : Tetris, 
+        agent : DiscreteEpsilonGreedyAgent,
+        seed : int,
+        debugParameters : dict):
+    
+    #env = RgbObservation(env)
+    renderMode = debugParameters["renderMode"]
+    render_if_needed = lambda: print(env.render() + "\n") if renderMode == "ansi" else (env.render() if renderMode == "rgb_array" else None)
+    
+    # Start the episode
+    initial_observation = env.reset(seed=seed)
+    render_if_needed()
 
-# Start the game
-initial_observation = env.reset(seed=42)
-action = agent.start(initial_observation)
+    # Take first step
+    first_action = agent.start(initial_observation)
+    observation, reward, terminated, truncated, info = env.step(first_action)
+    render_if_needed()
 
-# Play the game
-terminated = False
-while not terminated:
-    print(env.render() + "\n")
-    observation, reward, terminated, truncated, info = env.step(action)
-    action = agent.step(observation, reward)
-    time.sleep(0.1)
-    if terminated:
-        print(env.render() + "\n")
-        agent.end(observation, reward)
-        break
+    # Take remaining steps
+    while not terminated:
+        action = agent.step(observation, reward)
+        observation, reward, terminated, truncated, info = env.step(action)
+        render_if_needed()
+        timeStepDelay = debugParameters["timeStepDelay"]
+        if timeStepDelay is not None:
+            time.sleep(timeStepDelay)
 
-print("Game Over!")
+    # End the episode
+    agent.end(observation, reward)
+
+
+def main():
+    # Create the environment and agent
+    debugParameters = { 
+        "renderMode": "ansi",
+        "timeStepDelay": 0.05,
+    }
+    env: Tetris = gym.make(
+        "tetris_gymnasium/Tetris", 
+        render_mode=debugParameters["renderMode"])
+    
+    epsilon = 0.1
+    seed = 42
+    agent = DiscreteEpsilonGreedyAgent(
+        numActions=env.action_space.n,
+        epsilon=epsilon,
+        seed=seed)
+    
+    for episodeIndex in range(0, 1):
+        runSingleEpisode(
+            env, 
+            agent, 
+            seed, 
+            debugParameters)
+        print(f"Game Over! - {episodeIndex}")
+        time.sleep(1)
+    
+    print("All episodes completed!")
+    env.close()
+
+if __name__ == "__main__":
+    main()
