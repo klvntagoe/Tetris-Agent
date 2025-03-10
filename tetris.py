@@ -36,7 +36,7 @@ def runSingleEpisode(
         observation, reward, terminated, truncated, info = env.step(action)
         totalReward += reward
         totalSteps += 1
-        print(f"t: {totalSteps} - lastAction: {action} - reward: {reward} - totalReward: {totalReward}")
+        # print(f"e: {agent.numEpisodes} - t: {totalSteps} - epsilon: {agent.epsilon} - lastAction: {action} - reward: {reward} - totalReward: {totalReward} - info: {info}")
         render_if_needed()
         timeStepDelay = debugParameters["timeStepDelay"]
         if timeStepDelay is not None:
@@ -51,8 +51,8 @@ def main():
     # Create the environment and agent
     
     debugParameters = { 
-        "renderMode": "ansi",
-        "timeStepDelay": 0.05,
+        "renderMode": "human",
+        "timeStepDelay": 0.001,
     }
     env: Tetris = gym.make(
         "tetris_gymnasium/Tetris", 
@@ -66,26 +66,26 @@ def main():
     # epsilon_end: final value of epsilon
     # epsilon_decay: rate of exponential decay of epsilon, higher means a slower decay
     hyperParameters = {
-        "batch_size": 10,
+        "batch_size": 25,
         "gamma": 0.99,
-        "learning_rate": 0.01,
-        "epsilon_start": 0.1,
+        "learning_rate": 0.001,
+        "epsilon_start": 1,
         "epsilon_end": 0.01,
-        "epsilon_decay": 0.995,
+        "epsilon_decay": 100000,
     }
     agent = DiscreteEpsilonGreedyAgent(
         numActions=env.action_space.n,
         hyperParameters=hyperParameters,
         seed=seed)
     
-    for episodeIndex in range(0, 1):
+    for episodeIndex in range(0, 10000):
         totalReward, totalSteps = runSingleEpisode(
             env, 
             agent, 
             seed, 
             debugParameters)
-        print(f"Game Over! - {episodeIndex} - TotalReward: {totalReward} - TotalSteps: {totalSteps}")
-        time.sleep(1)
+        print(f"Game Over! - e: {episodeIndex} - t: {totalSteps} - TotalReward: {totalReward} - epsilon: {agent.epsilon} - t_total: {agent.numTotalSteps} - t_train: {agent.numTrainingSteps}")        
+        # time.sleep(0.01)
     
     print("All episodes completed!")
     env.close()
