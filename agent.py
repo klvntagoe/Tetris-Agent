@@ -1,9 +1,10 @@
+from ActionValueNetwork import TetrisActionValueNetwork
 import numpy as np
 import random as rand
-from ValueApproximator import ValueNetwork
 
 class DiscreteEpsilonGreedyAgent:
     epsilon = 0
+    hyperParameters = None
     NumActions = None
     randomVar = None
     seed = None
@@ -12,16 +13,18 @@ class DiscreteEpsilonGreedyAgent:
     def __init__(
             self, 
             numActions: int,
-            epsilon: float,
+            hyperParameters: dict,
             seed: int):
         
-        self.seed = seed
-        self.randomVar = rand.Random(seed)
+        epsilon = hyperParameters["epsilon_start"]
         if (epsilon < 0 or epsilon > 1):
             raise ValueError("Epsilon must be between 0 and 1.")
         self.epsilon = epsilon
+        self.hyperParameters = hyperParameters
         self.NumActions = numActions
-        self.ValueApproximator = ValueNetwork(self.seed, self.NumActions)
+        self.randomVar = rand.Random(seed)
+        self.seed = seed
+        self.ValueApproximator = TetrisActionValueNetwork(self.seed, self.NumActions, self.hyperParameters)
 
     def start(self, observation) -> int:
         self.lastState = observation
