@@ -8,7 +8,7 @@ Learning method:
 
 
 State representation (pre-processing):
-- Use board only
+- Use board only (focus on learning efficiency before state enrichment)
 - Remove padding
 - Binarize
 - Flatten
@@ -28,7 +28,7 @@ Action-Value Function:
 
 Action selection:
 - Behaviour policy: epsilon-greedy
-    - Epsilon decays linearly from 1 to 0.01 over 100k training steps
+    - Epsilon decays linearly from 1 to 0.01 over 1M training steps
 
 ## Can try later
 - Training
