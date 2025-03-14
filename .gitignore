@@ -1,3 +1,12 @@
 # Ignore compiled files
+
+# Python
 *.pyc
 __pycache__/
+
+# macOS
+.DS_Store
+
+# other
+dummy.py
+Journal.md
