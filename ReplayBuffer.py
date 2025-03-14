@@ -7,7 +7,9 @@ Transition = namedtuple(
 
 class ReplayBuffer(object):
     def __init__(self, seed, capacity):
-        self.randomVar = rand.Random(seed)
+        # Seeding
+        rand.seed(seed)
+        
         self.buffer = deque([], maxlen=capacity)
 
     def push(self, *args):
@@ -15,7 +17,7 @@ class ReplayBuffer(object):
         self.buffer.append(Transition(*args))
 
     def sample(self, batchSize):
-        return self.randomVar.sample(self.buffer, batchSize)
+        return rand.sample(self.buffer, batchSize)
 
     def __len__(self):
         return len(self.buffer)

@@ -12,19 +12,16 @@ import torch.nn as nn
 import torch.optim as optim
 
 class ActionValueFunction:
-    hyperParameters = None
-    numActions = None
-    optimizer = None
-    randomVar = None
-    replayBuffer = None
-    targetNetwork = None
-
     def __init__(
             self, 
             seed : int,
             numActions : int,
             hyperParameters):
-        self.randomVar = rand.Random(seed)
+        # Seeding
+        rand.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
         self.numActions = numActions
         self.hyperParameters = hyperParameters
 

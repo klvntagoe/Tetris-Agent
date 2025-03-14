@@ -1,4 +1,4 @@
-# https://github.com/Max-We/Tetris-Gymnasium/blob/main/examples/play_interactive.py
+# Forked from https://github.com/Max-We/Tetris-Gymnasium/blob/main/examples/play_interactive.py
 import sys
 
 import cv2
@@ -9,12 +9,13 @@ from tetris_gymnasium.envs import Tetris
 if __name__ == "__main__":
     # Create an instance of Tetris
     env = gym.make("tetris_gymnasium/Tetris", render_mode="human")
-    env.reset(seed=42)
+    env.reset()
 
     # Main game loop
     terminated = False
     numSteps = 0
     totalReward = 0
+    totalLinesCleared = 0
     while not terminated:
         # Render the current state of the game as text
         env.render()
@@ -39,7 +40,8 @@ if __name__ == "__main__":
             elif key == ord("q"):
                 action = env.unwrapped.actions.swap
             elif key == ord("r"):
-                env.reset(seed=42)
+                env.reset()
+                break
                  
 
             if (
@@ -52,10 +54,13 @@ if __name__ == "__main__":
         observation, reward, terminated, truncated, info = env.step(action)
         numSteps += 1
         totalReward += reward
+        totalLinesCleared += info["lines_cleared"]
+
         print(f"Game Over!"
             + f" - t: {numSteps}\t"
             + f" - r: {reward}\t"
-            + f" - tr: {totalReward}\t", info)
+            + f" - tr: {totalReward}\t"
+            + f" - lc: {totalLinesCleared}\t")
 
     # Game over
     print("Game Over!")
