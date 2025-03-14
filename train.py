@@ -7,7 +7,10 @@ import time
 import Utils
 
 debugParameters = { 
-    "renderMode": "human",
+    # "renderMode": "human",
+    "renderMode": None,
+    "numEpisodes": 1_000_000,
+    "plotRollingLength": 1000,
 }
 
 # batch_size: number of transitions sampled from the replay buffer
@@ -27,94 +30,32 @@ hyperParameters = {
 }
 
 def main():
-    seed = 42
-
     env: Tetris = gym.make(
         "tetris_gymnasium/Tetris", 
         render_mode=debugParameters["renderMode"])
-    env.reset(seed=seed)
+    
+    seed = 42
+    modelPath = None
+    # if (len(sys.argv) > 1):
+    #     modelPath = sys.argv[1]
 
     agent = DiscreteEpsilonGreedyAgent(
         seed=seed,
         numActions=env.action_space.n,
+        train=True,
         hyperParameters=hyperParameters)
-    
-    numEpisodes = 100_000
-    totalStepsList = []
-    totalRewardList = []
-    ema = lambda val, avg, alpha: val if avg is None else (alpha * val) + ((1 - alpha) * avg)
-    alpha = 0.001
-    totalStepsAvg = totalRewardAvg = totalLinesClearedAvg = None
-    totalLinesClearedAggregate = 0
-    start_time = time.time()
+    env.reset(seed=seed)
 
-    for episodeIndex in range(0, numEpisodes):
-        totalSteps, totalReward, totalLinesCleared = Utils.runSingleEpisode(
-                                env, 
-                                agent, 
-                                debugParameters)
-        
-        totalStepsList.append(totalSteps)
-        totalRewardList.append(totalReward)
-        totalStepsAvg = ema(totalSteps, totalStepsAvg, alpha)
-        totalRewardAvg = ema(totalReward, totalRewardAvg, alpha)
-        totalLinesClearedAvg = ema(totalLinesCleared, totalLinesCleared, alpha)
-        totalLinesClearedAggregate += totalLinesCleared
-        
-        end_time = time.time()
-        duration = end_time - start_time
-        hours = int(duration // 3600)
-        minutes = int((duration % 3600) // 60)
-        seconds = duration % 60
+    totalStepsList, totalRewardList = Utils.runBatchEpisodes(
+                                        env, 
+                                        agent, 
+                                        debugParameters["numEpisodes"],
+                                        train=True)
 
-        print(f"Game Over!"
-            + f" - e: {episodeIndex}\t"
-            + f" - r: {totalReward}\t"
-            + f" - r_avg: {totalRewardAvg:.2f}\t"
-            + f" - T: {totalSteps}\t"
-            + f" - T_avg: {totalStepsAvg:.2f}\t"
-            + f" - lc: {totalLinesCleared}\t"
-            + f" - lc_agg: {totalLinesClearedAggregate}\t"
-            + f" - lc_avg: {totalLinesClearedAvg:.2f}\t"
-            + f" - T_agent_total: {agent.numTotalSteps}\t"
-            + f" - T_agent_train: {agent.numTrainingSteps}\t"
-            + f" - eps: {agent.epsilon}\t"
-            + f" - duration: {hours:02d}:{minutes:02d}:{seconds:05.2f}")
-
-    print("All episodes completed!")
 
     # Visualization
-    rolling_length = numEpisodes / 100
-    fig, axs = plt.subplots(ncols=2, figsize=(12, 5))
-
-    axs[0].set_title("Episode rewards")
-    # compute and assign a rolling average of the data to provide a smoother graph
-    reward_moving_average = (
-        np.convolve(
-            np.array(totalRewardList).flatten(), np.ones(rolling_length), mode="valid"
-        )
-        / rolling_length
-    )
-    axs[0].plot(range(len(reward_moving_average)), reward_moving_average)
-
-    axs[1].set_title("Episode lengths")
-    length_moving_average = (
-        np.convolve(
-            np.array(totalStepsList).flatten(), np.ones(rolling_length), mode="same"
-        )
-        / rolling_length
-    )
-    axs[1].plot(range(len(length_moving_average)), length_moving_average)
-
-    # axs[2].set_title("Training Error")
-    # training_error_moving_average = (
-    #     np.convolve(np.array(agent.training_error), np.ones(rolling_length), mode="same")
-    #     / rolling_length
-    # )
-    # axs[2].plot(range(len(training_error_moving_average)), training_error_moving_average)
-
-    plt.tight_layout()
-    plt.show()
+    pairs = [("Episode lengths", totalStepsList), ("Episode rewards",totalRewardList)]
+    Utils.plotBatchResults(pairs, debugParameters["plotRollingLength"])
 
     env.close()
 

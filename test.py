@@ -5,11 +5,13 @@ import gymnasium as gym
 import Utils
 
 debugParameters = { 
-    "renderMode": "ansi",
+    # "renderMode": "ansi",
+    "renderMode": None,
     "timeStepDelaySecs": 0,
-    "numEpisodes": 20,
-    "plotRollingLength": 1
+    "numEpisodes": 1_000,
+    "plotRollingLength": 10
 }
+
 hyperParameters = {
     "epsilon": 0,
 }
