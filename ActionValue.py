@@ -1,7 +1,5 @@
 from collections import deque, namedtuple
 from model.qnn import QNN
-from ReplayBuffer import ReplayBuffer, Transition
-import glob
 import os
 
 import datetime
@@ -11,32 +9,59 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+
+Transition = namedtuple(
+    'Transition',
+    ('state', 'action', 'nextState', 'reward'))
+
+class ReplayBuffer(object):
+    def __init__(self, seed, capacity):
+        # Seeding
+        rand.seed(seed)
+        
+        self.buffer = deque([], maxlen=capacity)
+
+    def push(self, *args):
+        """Save a transition"""
+        self.buffer.append(Transition(*args))
+
+    def sample(self, batchSize):
+        return rand.sample(self.buffer, batchSize)
+
+    def __len__(self):
+        return len(self.buffer)
+
 class ActionValueFunction:
     def __init__(
             self, 
-            seed : int,
-            numActions : int,
-            hyperParameters):
+            seed: int,
+            numActions: int,
+            modelPath: str = None,
+            train: bool = True,
+            hyperParameters: dict = None):
         # Seeding
         rand.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
 
-        self.numActions = numActions
-        self.hyperParameters = hyperParameters
-
         self.targetNetwork = QNN(
             numInputs=200, 
-            numOutputs=numActions, 
-            hyperParameters=hyperParameters).to(QNN.device)
-        self.optimizer = optim.AdamW(
-            self.targetNetwork.parameters(), 
-            lr=hyperParameters["learning_rate"], 
-            amsgrad=True)
-        self._loadModel()
-        self.replayBuffer = ReplayBuffer(
-            seed, 
-            self.hyperParameters["buffer_capacity"])
+            numOutputs=numActions).to(QNN.device)
+        
+        self.train = train
+        if self.train:
+            self.hyperParameters = hyperParameters
+            self.optimizer = optim.AdamW(
+                self.targetNetwork.parameters(), 
+                lr=hyperParameters["learning_rate"], 
+                amsgrad=True)
+            self.replayBuffer = ReplayBuffer(
+                seed, 
+                self.hyperParameters["buffer_capacity"])
+            
+        if modelPath is not None:
+            self._loadModel(modelPath)
+        
         self.numEpisodes = 0
         self.numTrainingSteps = 0
         self.checkpointRate = 5000
@@ -56,6 +81,8 @@ class ActionValueFunction:
         return qValues.cpu().numpy();
 
     def update(self, state, action, reward, nextState):
+        if not self.train:
+            return
         state = self.preProcessState(state)
         action = torch.tensor([[action]], device=QNN.device)
         if nextState is not None:
@@ -133,15 +160,22 @@ class ActionValueFunction:
             path)
 
     
-    def _loadModel(self):
-        model_files = glob.glob(f'/model/{self.targetNetwork.NAME}*.pth')
-        latest_model = max(model_files, key=os.path.getctime) if model_files else None
-        if latest_model:
-            self.numEpisodes = checkpoint['numEpisodes']
-            self.numTrainingSteps = checkpoint['numTrainingSteps']
-            checkpoint = torch.load(latest_model)
-            self.targetNetwork.load_state_dict(checkpoint['model_state_dict'])
-            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            print (f"Loaded state from {latest_model}")
+    def _loadModel(self, path):
+        if path is not None:
+            try:
+                if not os.path.exists(path):
+                    print(f"Path does not exist: {path}")
+                    return
+                
+                checkpoint = torch.load(path)
+                self.numEpisodes = checkpoint['numEpisodes']
+                self.numTrainingSteps = checkpoint['numTrainingSteps']
+                self.targetNetwork.load_state_dict(checkpoint['model_state_dict'])
+                if self.train:
+                    self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                print (f"Loaded model from {path}")
+                
+            except Exception as e:
+                print(f"Error loading model: {e}")
         else:
-            print("No model state found to load")
+            print("No model found to load")

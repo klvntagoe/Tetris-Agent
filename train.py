@@ -1,93 +1,45 @@
-# https://max-we.github.io/Tetris-Gymnasium/environments/tetris/
-import gymnasium as gym
-from matplotlib import pyplot as plt
-import numpy as np
-from tetris_gymnasium.envs import Tetris
-#from tetris_gymnasium.wrappers.observation import RgbObservation
-
 from agent import DiscreteEpsilonGreedyAgent
+from matplotlib import pyplot as plt
+from tetris_gymnasium.envs import Tetris
+import gymnasium as gym
+import numpy as np
 import time
+import Utils
 
-def runSingleEpisode(
-        env : Tetris, 
-        agent : DiscreteEpsilonGreedyAgent,
-        debugParameters : dict, 
-        train : bool = True):
-    
-    if not train:
-        renderMode = debugParameters["renderMode"]
-        render_if_needed = lambda: print(env.render() + "\n") if renderMode == "ansi" else (env.render() if renderMode == "rgb_array" or "human" else None)
-    
-    # Start the episode
-    initialObservation, info = env.reset()
-    totalReward = 0
-    totalSteps = 0
-    totalLinesCleared = 0
-    if not train:
-        render_if_needed()
+debugParameters = { 
+    "renderMode": "human",
+}
 
-    # Take first step
-    first_action = agent.start(initialObservation)
-    observation, reward, terminated, truncated, info = env.step(first_action)
-    totalSteps += 1
-    totalReward += reward
-    totalLinesCleared += info["lines_cleared"]
-    if not train:
-        render_if_needed()
-
-    # Take remaining steps
-    while not terminated:
-        action = agent.step(observation, reward, train)
-        observation, reward, terminated, truncated, info = env.step(action)
-        totalSteps += 1
-        totalReward += reward
-        totalLinesCleared += info["lines_cleared"]
-        if not train:
-            render_if_needed()
-            print(f"e: {agent.numEpisodes} - t: {totalSteps} - epsilon: {agent.epsilon} - lastAction: {action} - reward: {reward} - totalReward: {totalReward} - info: {info}")
-            timeStepDelay = debugParameters["timeStepDelay"]
-            time.sleep(timeStepDelay) if timeStepDelay is not None else None
-
-    # End the episode
-    agent.end(observation, reward, train)
-    return (totalSteps, totalReward, totalLinesCleared)
-
+# batch_size: number of transitions sampled from the replay buffer
+# gamma: discount factor
+# learning_rate: learning rate of the optimizer - "AdamW"
+# epsilon_start: starting value of epsilon
+# epsilon_end: final value of epsilon
+# epsilon_decay_steps: rate of exponential decay of epsilon, higher means a slower decay
+hyperParameters = {
+    "batch_size": 32,
+    "buffer_capacity": 10_000,
+    "gamma": 0.99,
+    "learning_rate": 0.01,      # Learning rate is high because the Tetris environment is simple. Want fast training
+    "epsilon_start": 1,
+    "epsilon_end": 0.1,
+    "epsilon_decay_steps": 1_000_000,
+}
 
 def main():
-    # Create the environment and agent
-    
-    debugParameters = { 
-        "renderMode": "human",
-        "timeStepDelay": 0.0001,
-    }
+    seed = 42
+
     env: Tetris = gym.make(
         "tetris_gymnasium/Tetris", 
         render_mode=debugParameters["renderMode"])
-    
-    # Seeding
-    seed = 42
     env.reset(seed=seed)
 
-    # batch_size: number of transitions sampled from the replay buffer
-    # gamma: discount factor
-    # learning_rate: learning rate of the optimizer - "AdamW"
-    # epsilon_start: starting value of epsilon
-    # epsilon_end: final value of epsilon
-    # epsilon_decay_steps: rate of exponential decay of epsilon, higher means a slower decay
-    hyperParameters = {
-        "batch_size": 32,
-        "buffer_capacity": 10_000,
-        "gamma": 0.99,
-        "learning_rate": 0.01,      # Learning rate is high because the Tetris environment is simple. Want fast training
-        "epsilon_start": 1,
-        "epsilon_end": 0.1,
-        "epsilon_decay_steps": 1_000_000,
-    }
     agent = DiscreteEpsilonGreedyAgent(
         seed=seed,
         numActions=env.action_space.n,
         hyperParameters=hyperParameters)
-    runningRange = 100_000
+    
+    numEpisodes = 100_000
     totalStepsList = []
     totalRewardList = []
     ema = lambda val, avg, alpha: val if avg is None else (alpha * val) + ((1 - alpha) * avg)
@@ -95,8 +47,9 @@ def main():
     totalStepsAvg = totalRewardAvg = totalLinesClearedAvg = None
     totalLinesClearedAggregate = 0
     start_time = time.time()
-    for episodeIndex in range(0, runningRange):
-        totalSteps, totalReward, totalLinesCleared = runSingleEpisode(
+
+    for episodeIndex in range(0, numEpisodes):
+        totalSteps, totalReward, totalLinesCleared = Utils.runSingleEpisode(
                                 env, 
                                 agent, 
                                 debugParameters)
@@ -127,12 +80,11 @@ def main():
             + f" - T_agent_train: {agent.numTrainingSteps}\t"
             + f" - eps: {agent.epsilon}\t"
             + f" - duration: {hours:02d}:{minutes:02d}:{seconds:05.2f}")
-        # time.sleep(0.01)
 
     print("All episodes completed!")
 
     # Visualization
-    rolling_length = runningRange / 100
+    rolling_length = numEpisodes / 100
     fig, axs = plt.subplots(ncols=2, figsize=(12, 5))
 
     axs[0].set_title("Episode rewards")

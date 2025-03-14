@@ -7,22 +7,33 @@ class DiscreteEpsilonGreedyAgent:
             self,
             seed: int,
             numActions: int,
-            hyperParameters: dict):
+            modelPath: str = None,
+            train: bool = True,
+            hyperParameters: dict = None):
         # Seeding
         rand.seed(seed)
         np.random.seed(seed)
 
-        self.epsilonStart = hyperParameters["epsilon_start"]
-        self.epsilonEnd = hyperParameters["epsilon_end"]
-        self.epsilon = self.epsilonStart
-        self.epsilonDecaySteps = hyperParameters["epsilon_decay_steps"]
-
         self.hyperParameters = hyperParameters
         self.NumActions = numActions
+
         self.QFunction = ActionValueFunction(
             seed, 
             self.NumActions, 
-            self.hyperParameters)
+            modelPath=modelPath,
+            train=train,
+            hyperParameters=self.hyperParameters)
+        
+        self.epsilon = hyperParameters.get("epsilon")
+        if (self.epsilon is None):
+            self.epsilonDecay = True
+            self.epsilonDecaySteps = hyperParameters["epsilon_decay_steps"]
+            self.epsilonEnd = hyperParameters["epsilon_end"]
+            self.epsilonStart = hyperParameters["epsilon_start"]
+            self.epsilon = self.epsilonStart
+        else:
+            self.epsilonDecay = False
+        
         self.lastState = None
         self.lastAction = None
         self.numTotalSteps = 0
@@ -55,4 +66,5 @@ class DiscreteEpsilonGreedyAgent:
     def learn(self, state, action, reward, nextState):
         self.QFunction.update(state, action, reward, nextState)
         self.numTrainingSteps += 1
-        self.epsilon = self.epsilonEnd + ((self.epsilonStart - self.epsilonEnd) * max(0, 1 -  (self.numTrainingSteps / self.epsilonDecaySteps)))
+        if self.epsilonDecay:
+            self.epsilon = self.epsilonEnd + ((self.epsilonStart - self.epsilonEnd) * max(0, 1 -  (self.numTrainingSteps / self.epsilonDecaySteps)))
