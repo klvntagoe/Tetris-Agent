@@ -36,7 +36,7 @@ def runBatchEpisodes(
         timeStepDelay = None):
     totalStepsList = []
     totalRewardList = []
-    alpha = 0.001
+    alpha = 0.01
     totalStepsAvg = totalRewardAvg = totalLinesClearedAvg = None
     totalLinesClearedAggregate = 0
     start_time = time.time()
@@ -114,7 +114,13 @@ def runSingleEpisode(
         totalReward += reward
         totalLinesCleared += info["lines_cleared"]
         if not train:
-            print(f"e: {agent.numEpisodes} - t: {totalSteps} - epsilon: {agent.epsilon} - action: {action} - reward: {reward} - totalReward: {totalReward} - info: {info}")
+            print(f"e: {agent.numEpisodes}"
+                  + f" - t: {totalSteps}"
+                  + f" - epsilon: {agent.epsilon}"
+                  + f" - action: {action}"
+                  + f" - reward: {reward}"
+                  + f" - totalReward: {totalReward}"
+                  + f" - info: {info}")
             render_if_needed()
             time.sleep(timeStepDelay) if timeStepDelay is not None else None
 

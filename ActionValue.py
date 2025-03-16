@@ -1,7 +1,6 @@
 from collections import deque, namedtuple
 from model.qnn import QNN
 import os
-
 import datetime
 import numpy as np
 import random as rand
@@ -17,7 +16,8 @@ Transition = namedtuple(
 class ReplayBuffer(object):
     def __init__(self, seed, capacity):
         # Seeding
-        rand.seed(seed)
+        if seed is not None:
+            rand.seed(seed)
         
         self.buffer = deque([], maxlen=capacity)
 
@@ -38,11 +38,21 @@ class ActionValueFunction:
             numActions: int,
             modelPath: str = None,
             train: bool = True,
-            hyperParameters: dict = None):
+            learningRate = 1e-2,
+            discountFactor = 0.99,
+            replayBufferCapacity = 100_000,
+            batchTransitionSampleSize = 32,
+            trainingFrequency = 4,
+            checkpointRate = 100_000):
         # Seeding
-        rand.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+        self.seed = -1
+        if seed is not None:
+            self.seed = seed
+            rand.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
         self.targetNetwork = QNN(
             numInputs=200, 
@@ -50,21 +60,24 @@ class ActionValueFunction:
         
         self.train = train
         if self.train:
-            self.hyperParameters = hyperParameters
+            self.discountFactor = discountFactor
             self.optimizer = optim.AdamW(
                 self.targetNetwork.parameters(), 
-                lr=hyperParameters["learning_rate"], 
+                lr= learningRate, 
                 amsgrad=True)
             self.replayBuffer = ReplayBuffer(
                 seed, 
-                self.hyperParameters["buffer_capacity"])
+                replayBufferCapacity)
+            self.batchTransitionSampleSize = batchTransitionSampleSize
+            self.trainingFrequency = trainingFrequency
+            self.checkpointRate = checkpointRate
             
         if modelPath is not None:
             self._loadModel(modelPath)
         
         self.numEpisodes = 0
-        self.numTrainingSteps = 0
-        self.checkpointRate = 5000
+        self.numUpdates = 0         # Number of calls to update state info
+        self.numTrainingSteps = 0   # Number of optimizations
     
     # Convert to a 20x10 = 200 length 1D tensor
     def preProcessState(self, state):
@@ -80,7 +93,7 @@ class ActionValueFunction:
             qValues = self.targetNetwork(self.preProcessState(state));
         return qValues.cpu().numpy();
 
-    def update(self, state, action, reward, nextState):
+    def update(self, state, action, reward, nextState, runTDUpdate):
         if not self.train:
             return
         state = self.preProcessState(state)
@@ -94,17 +107,20 @@ class ActionValueFunction:
             action, 
             nextState, 
             reward)
-        self._optimize()
-        self.numTrainingSteps += 1
-        
-        if self.numEpisodes != 0 and self.numEpisodes % self.checkpointRate == 0:    # Save the model
-            self._saveModel()
+        self.numUpdates += 1
+
+        if runTDUpdate:
+            if self.numUpdates % self.trainingFrequency == 0:
+                self._optimize()
+                self.numTrainingSteps += 1
+            if self.numEpisodes % self.checkpointRate == 0:
+                self._saveModel()
     
     def signalEpisodeEnd(self):
         self.numEpisodes += 1
 
     def _optimize(self):
-        batchSize = self.hyperParameters["batch_size"]
+        batchSize = self.batchTransitionSampleSize
         if len(self.replayBuffer) < batchSize:
             return
         self.targetNetwork.train()  # Set the model to training mode
@@ -133,8 +149,7 @@ class ActionValueFunction:
             nextStateValues[nonFinalMask] = self.targetNetwork(nonTerminatingNextStates).max(1).values
         
         # Compute the expected Q values
-        gamma = self.hyperParameters["gamma"]
-        expectedStateActionValues = rewardBatch + (gamma * nextStateValues)
+        expectedStateActionValues = rewardBatch + (self.discountFactor * nextStateValues)
 
         # Compute TD error using Huber Loss 
         lossCriterion = nn.SmoothL1Loss()
@@ -148,33 +163,30 @@ class ActionValueFunction:
 
     def _saveModel(self):
         now = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-        path = f'./model/{self.targetNetwork.NAME}_checkpoint_{now}.pth'
+        path = f'./model/{self.targetNetwork.NAME}_checkpoint_{now}.pth' if self.seed < 0 else f'./model/{self.targetNetwork.NAME}_checkpoint_{now}_seed_{self.seed}.pth'
         model = self.targetNetwork
         torch.save(
             {
-                'numEpisodes': self.numEpisodes,
+                'discountFactor': self.discountFactor,      # override any discount factor input
                 'numTrainingSteps': self.numTrainingSteps,
                 'model_state_dict': self.targetNetwork.state_dict(),
-                'optimizer_state_dict': self.optimizer.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),    # learning rate baked in
             }, 
             path)
 
-    
     def _loadModel(self, path):
         if path is not None:
             try:
                 if not os.path.exists(path):
                     print(f"Path does not exist: {path}")
                     return
-                
                 checkpoint = torch.load(path)
-                self.numEpisodes = checkpoint['numEpisodes']
-                self.numTrainingSteps = checkpoint['numTrainingSteps']
                 self.targetNetwork.load_state_dict(checkpoint['model_state_dict'])
                 if self.train:
                     self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                print (f"Loaded model from {path}")
-                
+                    self.discountFactor = checkpoint['discountFactor']
+                    self.numTrainingSteps = checkpoint['numTrainingSteps']
+                print (f"Loaded model from {path}")  
             except Exception as e:
                 print(f"Error loading model: {e}")
         else:

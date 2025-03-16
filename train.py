@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from tetris_gymnasium.envs import Tetris
 import gymnasium as gym
 import numpy as np
+import secrets
 import time
 import Utils
 
@@ -13,20 +14,17 @@ debugParameters = {
     "plotRollingLength": 1000,
 }
 
-# batch_size: number of transitions sampled from the replay buffer
-# gamma: discount factor
-# learning_rate: learning rate of the optimizer - "AdamW"
-# epsilon_start: starting value of epsilon
-# epsilon_end: final value of epsilon
-# epsilon_decay_steps: rate of exponential decay of epsilon, higher means a slower decay
 hyperParameters = {
-    "batch_size": 32,
-    "buffer_capacity": 10_000,
-    "gamma": 0.99,
-    "learning_rate": 0.01,      # Learning rate is high because the Tetris environment is simple. Want fast training
     "epsilon_start": 1,
     "epsilon_end": 0.1,
-    "epsilon_decay_steps": 1_000_000,
+    "epsilon_decay_steps": 10_000_000,
+    "learningRate": 0.01,      # Learning rate is high because the Tetris environment is simple. Want fast training
+    "discountFactor": 0.99,
+    "replayBufferCapacity": 1_000_000,
+    "batchTransitionSampleSize": 32,
+    "trainingFrequency": 4,
+    "checkpointRate": 10_000,
+    "learningStartPoint": 1_000_000,
 }
 
 def main():
@@ -34,7 +32,7 @@ def main():
         "tetris_gymnasium/Tetris", 
         render_mode=debugParameters["renderMode"])
     
-    seed = 42
+    seed = secrets.randbits(32)     # numpy seed needs to be between 0 and 2**32 - 1
     modelPath = None
     # if (len(sys.argv) > 1):
     #     modelPath = sys.argv[1]

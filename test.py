@@ -1,7 +1,8 @@
-import sys
 from agent import DiscreteEpsilonGreedyAgent
 from tetris_gymnasium.envs import Tetris
 import gymnasium as gym
+import secrets
+import sys
 import Utils
 
 debugParameters = { 
@@ -21,10 +22,10 @@ def main():
         "tetris_gymnasium/Tetris", 
         render_mode=debugParameters["renderMode"])
     
-    seed = 42
-    modelPath = "model/QNN1_nn_checkpoint_20250312_1508.pth"
-    # if (len(sys.argv) > 1):
-    #     modelPath = sys.argv[1]
+    seed = secrets.randbits(32)     # numpy seed needs to be between 0 and 2^32 - 1
+    modelPath = None
+    if (len(sys.argv) > 1):
+        modelPath = sys.argv[1]
 
     agent = DiscreteEpsilonGreedyAgent(
         seed=seed,

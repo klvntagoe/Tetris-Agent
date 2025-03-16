@@ -9,27 +9,43 @@ class DiscreteEpsilonGreedyAgent:
             numActions: int,
             modelPath: str = None,
             train: bool = True,
-            hyperParameters: dict = None):
+            hyperParameters:dict = None):
         # Seeding
-        rand.seed(seed)
-        np.random.seed(seed)
+        if seed is not None:
+            rand.seed(seed)
+            np.random.seed(seed)
 
         self.hyperParameters = hyperParameters
         self.NumActions = numActions
 
-        self.QFunction = ActionValueFunction(
-            seed, 
-            self.NumActions, 
-            modelPath=modelPath,
-            train=train,
-            hyperParameters=self.hyperParameters)
         
-        self.epsilon = hyperParameters.get("epsilon")
+        self.train = train
+        if self.train:
+            self.QFunction = ActionValueFunction(
+                seed, 
+                self.NumActions, 
+                modelPath=modelPath,
+                train=True,
+                learningRate=hyperParameters["learningRate"],
+                discountFactor =hyperParameters["discountFactor"],
+                replayBufferCapacity=hyperParameters["replayBufferCapacity"],
+                batchTransitionSampleSize=hyperParameters["batchTransitionSampleSize"],
+                trainingFrequency=hyperParameters["trainingFrequency"],
+                checkpointRate=hyperParameters["checkpointRate"])
+            self.learningStartPoint = hyperParameters.get("learningStartPoint", 0)
+        else:
+            self.QFunction = ActionValueFunction(
+                seed, 
+                self.NumActions, 
+                modelPath=modelPath,
+                train=False)
+            
+        self.epsilon = self.hyperParameters.get("epsilon")
         if (self.epsilon is None):
             self.epsilonDecay = True
-            self.epsilonDecaySteps = hyperParameters["epsilon_decay_steps"]
-            self.epsilonEnd = hyperParameters["epsilon_end"]
-            self.epsilonStart = hyperParameters["epsilon_start"]
+            self.epsilonDecaySteps = self.hyperParameters["epsilon_decay_steps"]
+            self.epsilonEnd = self.hyperParameters["epsilon_end"]
+            self.epsilonStart = self.hyperParameters["epsilon_start"]
             self.epsilon = self.epsilonStart
         else:
             self.epsilonDecay = False
@@ -64,7 +80,12 @@ class DiscreteEpsilonGreedyAgent:
         return action
     
     def learn(self, state, action, reward, nextState):
-        self.QFunction.update(state, action, reward, nextState)
-        self.numTrainingSteps += 1
+        if self.numTotalSteps > self.learningStartPoint:
+
+            self.QFunction.update(state, action, reward, nextState, True)
+            self.numTrainingSteps += 1
+        else:
+            self.QFunction.update(state, action, reward, nextState, False)
+
         if self.epsilonDecay:
             self.epsilon = self.epsilonEnd + ((self.epsilonStart - self.epsilonEnd) * max(0, 1 -  (self.numTrainingSteps / self.epsilonDecaySteps)))
