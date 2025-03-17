@@ -18,12 +18,12 @@ hyperParameters = {
     "epsilon_start": 1,
     "epsilon_end": 0.1,
     "epsilon_decay_steps": 10_000_000,
-    "learningRate": 0.01,      # Learning rate is high because the Tetris environment is simple. Want fast training
+    "learningRate": 0.001,
     "discountFactor": 0.99,
     "replayBufferCapacity": 1_000_000,
     "batchTransitionSampleSize": 32,
     "trainingFrequency": 4,
-    "checkpointRate": 10_000,
+    "checkpointRate": 100_000,
     "learningStartPoint": 1_000_000,
 }
 

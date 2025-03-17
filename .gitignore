@@ -8,3 +8,4 @@ __pycache__/
 # other
 dummy.py
 Journal.md
+model/*
