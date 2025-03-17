@@ -55,7 +55,7 @@ class ActionValueFunction:
         torch.backends.cudnn.benchmark = False
 
         self.targetNetwork = QNN(
-            numInputs=200, 
+            numInputs=216, 
             numOutputs=numActions).to(QNN.device)
         
         self.train = train
@@ -79,13 +79,17 @@ class ActionValueFunction:
         self.numUpdates = 0         # Number of calls to update state info
         self.numTrainingSteps = 0   # Number of optimizations
     
-    # Convert to a 20x10 = 200 length 1D tensor
+    # Convert to a 20x10 + 4x4 = 216 length 1D tensor
     def preProcessState(self, state):
         board = state['board']
         board = board[:20,4:14] # Remove padding
         board[board != 0] = 1 # Set all non-empty cells to 1
         flattenedBoard = board.astype(np.float32).flatten()
-        return torch.tensor(flattenedBoard, device=QNN.device, dtype=torch.float).unsqueeze(0)
+        holder = state['holder']
+        holder[holder != 0] = 1
+        flattenedHolder = holder.astype(np.float32).flatten()
+        aggregate = np.concatenate((flattenedBoard, flattenedHolder))
+        return torch.tensor(aggregate, device=QNN.device, dtype=torch.float).unsqueeze(0)
     
     def evaluate(self, state):
         self.targetNetwork.eval()   # Set the model to evaluation mode
