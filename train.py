@@ -23,7 +23,7 @@ hyperParameters = {
     "replayBufferCapacity": 1_000_000,
     "batchTransitionSampleSize": 32,
     "trainingFrequency": 4,
-    "checkpointRate": 100_000,
+    "checkpointRate": 1_000_000,
     "learningStartPoint": 1_000_000,
 }
 

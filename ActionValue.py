@@ -43,7 +43,7 @@ class ActionValueFunction:
             replayBufferCapacity = 100_000,
             batchTransitionSampleSize = 32,
             trainingFrequency = 4,
-            checkpointRate = 100_000):
+            checkpointRate = 1_000_000):
         # Seeding
         self.seed = -1
         if seed is not None:
@@ -75,7 +75,6 @@ class ActionValueFunction:
         if modelPath is not None:
             self._loadModel(modelPath)
         
-        self.numEpisodes = 0
         self.numUpdates = 0         # Number of calls to update state info
         self.numTrainingSteps = 0   # Number of optimizations
     
@@ -116,11 +115,8 @@ class ActionValueFunction:
             if self.numUpdates % self.trainingFrequency == 0:
                 self._optimize()
                 self.numTrainingSteps += 1
-            if self.numEpisodes % self.checkpointRate == 9: # account for 0-indexing so that model of last episode is saved
+            if self.numTrainingSteps % self.checkpointRate == 9:
                 self._saveModel()
-    
-    def signalEpisodeEnd(self):
-        self.numEpisodes += 1
 
     def _optimize(self):
         batchSize = self.batchTransitionSampleSize
