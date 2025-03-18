@@ -43,6 +43,7 @@ class ActionValueFunction:
             replayBufferCapacity = 100_000,
             batchTransitionSampleSize = 32,
             trainingFrequency = 4,
+            targetNetworkUpdateFrequency = 10_000,
             checkpointRate = 1_000_000):
         # Seeding
         self.seed = -1
@@ -54,17 +55,23 @@ class ActionValueFunction:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-        self.targetNetwork = QNN(
-            numInputs=216, 
+        numInputs = 216 # Todo: make this configurable
+        self.onlineNetwork = QNN(
+            numInputs=numInputs, 
             numOutputs=numActions).to(QNN.device)
         
         self.train = train
         if self.train:
-            self.discountFactor = discountFactor
             self.optimizer = optim.AdamW(
-                self.targetNetwork.parameters(), 
+                self.onlineNetwork.parameters(), 
                 lr= learningRate, 
                 amsgrad=True)
+            self.targetNetwork = QNN(
+                numInputs=numInputs, 
+                numOutputs=numActions).to(QNN.device)
+            self._hardUpdateTarget()
+            self.targetNetworkUpdateFrequency = targetNetworkUpdateFrequency
+            self.discountFactor = discountFactor
             self.replayBuffer = ReplayBuffer(
                 seed, 
                 replayBufferCapacity)
@@ -91,9 +98,9 @@ class ActionValueFunction:
         return torch.tensor(aggregate, device=QNN.device, dtype=torch.float).unsqueeze(0)
     
     def evaluate(self, state):
-        self.targetNetwork.eval()   # Set the model to evaluation mode
+        self.onlineNetwork.eval()   # Set the model to evaluation mode
         with torch.no_grad():
-            qValues = self.targetNetwork(self.preProcessState(state));
+            qValues = self.onlineNetwork(self.preProcessState(state));
         return qValues.cpu().numpy();
 
     def update(self, state, action, reward, nextState, runTDUpdate):
@@ -115,6 +122,8 @@ class ActionValueFunction:
             if self.numUpdates % self.trainingFrequency == 0:
                 self._optimize()
                 self.numTrainingSteps += 1
+            if self.numTrainingSteps % self.targetNetworkUpdateFrequency % 0:
+                self._hardUpdateTarget()
             if self.numTrainingSteps % self.checkpointRate == 9:
                 self._saveModel()
 
@@ -122,7 +131,7 @@ class ActionValueFunction:
         batchSize = self.batchTransitionSampleSize
         if len(self.replayBuffer) < batchSize:
             return
-        self.targetNetwork.train()  # Set the model to training mode
+        self.onlineNetwork.train()  # Set the model to training mode
         transitions = self.replayBuffer.sample(batchSize)
         # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for detailed explanation). 
         # This converts batch-array of Transitions to Transition of batch-arrays.
@@ -140,9 +149,9 @@ class ActionValueFunction:
         rewardBatch = torch.cat(batch.reward)
 
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the columns of actions taken. These are the actions which would've been taken for each batch state
-        stateActionValues = self.targetNetwork(stateBatch).gather(1, actionBatch)
+        stateActionValues = self.onlineNetwork(stateBatch).gather(1, actionBatch)
 
-        # Compute V(s_{t+1}) for all non-terminal next states
+        # Compute V(s_{t+1}) for all non-terminal next states USING DELAYED TARGET NETWORK
         nextStateValues = torch.zeros(batchSize, device=QNN.device)
         with torch.no_grad():
             nextStateValues[nonFinalMask] = self.targetNetwork(nonTerminatingNextStates).max(1).values
@@ -157,18 +166,21 @@ class ActionValueFunction:
         # Optimize the model
         self.optimizer.zero_grad()
         tdHuberError.backward()
-        # torch.nn.utils.clip_grad_norm_(self.targetNetwork.parameters(), 100)    # Clip the gradient in-place
+        # torch.nn.utils.clip_grad_norm_(self.onlineNetwork.parameters(), 100)    # Clip the gradient in-place
         self.optimizer.step()
-
+    
+    def _hardUpdateTarget(self):
+        self.targetNetwork.load_state_dict(self.onlineNetwork.state_dict())
+    
     def _saveModel(self):
         now = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-        path = f'./model/{self.targetNetwork.NAME}_checkpoint_{now}.pth' if self.seed < 0 else f'./model/{self.targetNetwork.NAME}_checkpoint_{now}_seed_{self.seed}.pth'
-        model = self.targetNetwork
+        path = f'./model/{self.onlineNetwork.NAME}_checkpoint_{now}.pth' if self.seed < 0 else f'./model/{self.onlineNetwork.NAME}_checkpoint_{now}_seed_{self.seed}.pth'
+        model = self.onlineNetwork
         torch.save(
             {
                 'discountFactor': self.discountFactor,      # override any discount factor input
                 'numTrainingSteps': self.numTrainingSteps,
-                'model_state_dict': self.targetNetwork.state_dict(),
+                'model_state_dict': self.onlineNetwork.state_dict(),
                 'optimizer_state_dict': self.optimizer.state_dict(),    # learning rate baked in
             }, 
             path)
@@ -180,8 +192,9 @@ class ActionValueFunction:
                     print(f"Path does not exist: {path}")
                     return
                 checkpoint = torch.load(path)
-                self.targetNetwork.load_state_dict(checkpoint['model_state_dict'])
+                self.onlineNetwork.load_state_dict(checkpoint['model_state_dict'])
                 if self.train:
+                    self.targetNetwork.load_state_dict(checkpoint['model_state_dict'])
                     self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
                     self.discountFactor = checkpoint['discountFactor']
                     self.numTrainingSteps = checkpoint['numTrainingSteps']

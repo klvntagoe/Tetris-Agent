@@ -31,6 +31,7 @@ class DiscreteEpsilonGreedyAgent:
                 replayBufferCapacity=hyperParameters["replayBufferCapacity"],
                 batchTransitionSampleSize=hyperParameters["batchTransitionSampleSize"],
                 trainingFrequency=hyperParameters["trainingFrequency"],
+                targetNetworkUpdateFrequency = hyperParameters['targetNetworkUpdateFrequency'],
                 checkpointRate=hyperParameters["checkpointRate"])
             self.learningStartPoint = hyperParameters.get("learningStartPoint", 0)
         else:
