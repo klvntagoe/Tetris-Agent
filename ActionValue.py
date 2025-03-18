@@ -122,9 +122,9 @@ class ActionValueFunction:
             if self.numUpdates % self.trainingFrequency == 0:
                 self._optimize()
                 self.numTrainingSteps += 1
-            if self.numTrainingSteps % self.targetNetworkUpdateFrequency % 0:
+            if self.numTrainingSteps % self.targetNetworkUpdateFrequency == 0:      # save after periodic intervals of optimization steps
                 self._hardUpdateTarget()
-            if self.numTrainingSteps % self.checkpointRate == 9:
+            if self.numTrainingSteps % self.checkpointRate == 0:      # save after periodic intervals of optimization steps
                 self._saveModel()
 
     def _optimize(self):
