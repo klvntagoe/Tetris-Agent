@@ -14,7 +14,7 @@ debugParameters = {
 }
 
 hyperParameters = {
-    "epsilon": 0,
+    "epsilon": 0.1,
 }
 
 def main():
