@@ -72,7 +72,7 @@ def runBatchEpisodes(
             + f" - lc_agg: {totalLinesClearedAggregate}\t"
             + f" - lc_avg: {totalLinesClearedAvg:.2f}\t"
             + f" - T_agent_total: {agent.numTotalSteps}\t"
-            + f" - T_agent_train: {agent.numTrainingSteps}\t"
+            + f" - T_model_train: {agent.QFunction.numTrainingSteps}\t"
             + f" - eps: {agent.epsilon}\t"
             + f" - duration: {hours:02d}:{minutes:02d}:{seconds:05.2f}")
 
@@ -107,8 +107,8 @@ def runSingleEpisode(
         render_if_needed()
 
     # Take remaining steps
-    while not terminated:
-        action = agent.step(observation, reward, train)
+    while not terminated or truncated:
+        action = agent.step(observation, reward)
         observation, reward, terminated, truncated, info = env.step(action)
         totalSteps += 1
         totalReward += reward
@@ -125,5 +125,5 @@ def runSingleEpisode(
             time.sleep(timeStepDelay) if timeStepDelay is not None else None
 
     # End the episode
-    agent.end(observation, reward, train)
+    agent.end(observation, reward)
     return (totalSteps, totalReward, totalLinesCleared)

@@ -9,3 +9,4 @@ __pycache__/
 dummy.py
 Journal.md
 model/*
+!model/*.py

@@ -61,16 +61,16 @@ class DiscreteEpsilonGreedyAgent:
         self.lastAction = self.selectAction(observation)
         return self.lastAction
     
-    def step(self, observation, reward, shouldTrain = True) -> int:
-        if shouldTrain:
+    def step(self, observation, reward) -> int:
+        if self.train:
             self.learn(self.lastState, self.lastAction, reward, observation)
         self.lastState = observation
         self.lastAction = self.selectAction(observation)
         return self.lastAction
 
-    def end(self, observation, reward, shouldTrain = True):
-        if shouldTrain:
-            self.learn(self.lastState, self.lastAction, reward, observation)
+    def end(self, observation, reward):
+        if self.train:
+            self.learn(self.lastState, self.lastAction, reward, None)
         self.QFunction.signalEpisodeEnd()
         self.numEpisodes += 1
 

@@ -102,8 +102,7 @@ class ActionValueFunction:
             return
         state = self.preProcessState(state)
         action = torch.tensor([[action]], device=QNN.device)
-        if nextState is not None:
-            nextState = self.preProcessState(nextState)
+        nextState = self.preProcessState(nextState) if nextState is not None else None
         reward = torch.tensor([reward], device=QNN.device)
 
         self.replayBuffer.push(
@@ -117,7 +116,7 @@ class ActionValueFunction:
             if self.numUpdates % self.trainingFrequency == 0:
                 self._optimize()
                 self.numTrainingSteps += 1
-            if self.numEpisodes % self.checkpointRate == 0:
+            if self.numEpisodes % self.checkpointRate == 9: # account for 0-indexing so that model of last episode is saved
                 self._saveModel()
     
     def signalEpisodeEnd(self):
@@ -135,7 +134,7 @@ class ActionValueFunction:
 
         # Compute a mask of non-final states and concatenate the batch elements
         nonFinalMask = torch.tensor(
-                tuple(map(lambda s: s is not None,batch.nextState)),
+                tuple(map(lambda s: s is not None, batch.nextState)),
                 device=QNN.device, 
                 dtype=torch.bool)
         
