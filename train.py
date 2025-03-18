@@ -1,9 +1,11 @@
 from agent import DiscreteEpsilonGreedyAgent
 from matplotlib import pyplot as plt
 from tetris_gymnasium.envs import Tetris
+from typing import Callable
 import gymnasium as gym
 import numpy as np
 import secrets
+import sys
 import time
 import Utils
 
@@ -29,21 +31,24 @@ hyperParameters = {
 }
 
 def main():
+    seed = secrets.randbits(32)     # numpy seed needs to be between 0 and 2**32 - 1
+    modelPath = None
+    if (len(sys.argv) > 1):
+        modelPath = sys.argv[1]
+
     env: Tetris = gym.make(
         "tetris_gymnasium/Tetris", 
         render_mode=debugParameters["renderMode"])
-    
-    seed = secrets.randbits(32)     # numpy seed needs to be between 0 and 2**32 - 1
-    modelPath = None
-    # if (len(sys.argv) > 1):
-    #     modelPath = sys.argv[1]
+    env.reset(seed=seed)
 
+    # Randomly sample from set of legal actions
+    randomActionFn: Callable[[], int] = lambda: env.action_space.sample()
     agent = DiscreteEpsilonGreedyAgent(
         seed=seed,
         numActions=env.action_space.n,
+        randomActionFn=randomActionFn,
         train=True,
         hyperParameters=hyperParameters)
-    env.reset(seed=seed)
 
     totalStepsList, totalRewardList = Utils.runBatchEpisodes(
                                         env, 

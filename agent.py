@@ -1,4 +1,5 @@
 from ActionValue import ActionValueFunction
+from typing import Callable
 import numpy as np
 import random as rand
 
@@ -7,6 +8,7 @@ class DiscreteEpsilonGreedyAgent:
             self,
             seed: int,
             numActions: int,
+            randomActionFn: Callable[[], int],
             modelPath: str = None,
             train: bool = True,
             hyperParameters:dict = None):
@@ -17,7 +19,7 @@ class DiscreteEpsilonGreedyAgent:
 
         self.hyperParameters = hyperParameters
         self.NumActions = numActions
-
+        self.selectRandomAction = randomActionFn
         
         self.train = train
         if self.train:
@@ -72,9 +74,9 @@ class DiscreteEpsilonGreedyAgent:
         if self.train:
             self.learn(self.lastState, self.lastAction, reward, None)
         self.numEpisodes += 1
-
+    
     def selectAction(self, state) -> int:
-        action = np.argmax(self.QFunction.evaluate(state)) if rand.random() > self.epsilon else rand.randint(0, self.NumActions - 1)
+        action = np.argmax(self.QFunction.evaluate(state)) if rand.random() > self.epsilon else self.selectRandomAction()
         self.numTotalSteps += 1
         return action
     
