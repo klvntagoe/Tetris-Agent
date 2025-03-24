@@ -1,4 +1,5 @@
 from agent import DiscreteEpsilonGreedyAgent
+from gymnasium.wrappers import RecordVideo
 from tetris_gymnasium.envs import Tetris
 import gymnasium as gym
 import secrets
@@ -6,26 +7,29 @@ import sys
 import Utils
 
 debugParameters = { 
-    # "renderMode": "ansi",
-    "renderMode": None,
-    "timeStepDelaySecs": 0,
-    "numEpisodes": 1_000,
-    "plotRollingLength": 10
+    "renderMode": "ansi",
+    "timeStepDelaySecs": 0.5,
+    "numEpisodes": 1,
+    "numTotalSteps": 1_000,
+    "plotRollingLength": 100
 }
 
 hyperParameters = {
-    "epsilon": 0.1,
+    "epsilon": 0.05,
 }
 
 def main():
-    seed = secrets.randbits(32)     # numpy seed needs to be between 0 and 2^32 - 1
-    modelPath = None
-    if (len(sys.argv) > 1):
-        modelPath = sys.argv[1]
+    if (len(sys.argv) < 2):
+        print("No model path provided")
+        return
     
-    env: Tetris = gym.make(
+    seed = secrets.randbits(32)     # numpy seed needs to be between 0 and 2^32 - 1
+    modelPath = sys.argv[1]
+    
+    renderMode = debugParameters.get("renderMode", None)
+    env = gym.make(
         "tetris_gymnasium/Tetris", 
-        render_mode=debugParameters["renderMode"])
+        render_mode=renderMode)
     env.reset(seed=seed)
     
     agent = DiscreteEpsilonGreedyAgent(
@@ -40,9 +44,10 @@ def main():
                                         env, 
                                         agent, 
                                         debugParameters["numEpisodes"],
+                                        debugParameters["numTotalSteps"],
                                         train=False,
-                                        renderMode=debugParameters["renderMode"],
-                                        timeStepDelay=debugParameters["timeStepDelaySecs"])
+                                        renderMode=renderMode,
+                                        timeStepDelay=debugParameters.get("timeStepDelaySecs", 0))
 
     # Visualization
     pairs = [("Episode lengths", totalStepsList), ("Episode rewards",totalRewardList)]

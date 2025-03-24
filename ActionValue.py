@@ -199,6 +199,12 @@ class ActionValueFunction:
                     self.discountFactor = checkpoint['discountFactor']
                     self.numTrainingSteps = checkpoint['numTrainingSteps']
                 print (f"Loaded model from {path}")  
+                numParameters = sum(p.numel() for p in self.onlineNetwork.parameters())
+                print(f"Model has {numParameters} parameters")
+                for name, param in self.onlineNetwork.named_parameters():
+                    print(f"{name}: {param.numel()} parameters")
+
+
             except Exception as e:
                 print(f"Error loading model: {e}")
         else:

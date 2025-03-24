@@ -46,9 +46,9 @@ class DiscreteEpsilonGreedyAgent:
         self.epsilon = self.hyperParameters.get("epsilon")
         if (self.epsilon is None):
             self.epsilonDecay = True
-            self.epsilonDecaySteps = self.hyperParameters["epsilon_decay_steps"]
-            self.epsilonEnd = self.hyperParameters["epsilon_end"]
-            self.epsilonStart = self.hyperParameters["epsilon_start"]
+            self.epsilonDecaySteps = self.hyperParameters["epsilonDecaySteps"]
+            self.epsilonEnd = self.hyperParameters["epsilonEnd"]
+            self.epsilonStart = self.hyperParameters["epsilonStart"]
             self.epsilon = self.epsilonStart
         else:
             self.epsilonDecay = False
@@ -61,6 +61,7 @@ class DiscreteEpsilonGreedyAgent:
     def start(self, observation) -> int:
         self.lastState = observation
         self.lastAction = self.selectAction(observation)
+        self.numEpisodes += 1
         return self.lastAction
     
     def step(self, observation, reward) -> int:
@@ -73,7 +74,6 @@ class DiscreteEpsilonGreedyAgent:
     def end(self, observation, reward):
         if self.train:
             self.learn(self.lastState, self.lastAction, reward, None)
-        self.numEpisodes += 1
     
     def selectAction(self, state) -> int:
         action = np.argmax(self.QFunction.evaluate(state)) if rand.random() > self.epsilon else self.selectRandomAction()
@@ -82,10 +82,10 @@ class DiscreteEpsilonGreedyAgent:
     
     def learn(self, state, action, reward, nextState):
         if self.numTotalSteps >= self.learningStartPoint:
-
             self.QFunction.update(state, action, reward, nextState, True)
         else:
             self.QFunction.update(state, action, reward, nextState, False)
 
         if self.epsilonDecay:
-            self.epsilon = self.epsilonEnd + ((self.epsilonStart - self.epsilonEnd) * max(0, 1 -  (self.numTotalSteps / self.epsilonDecaySteps)))
+            numLearningSteps = max(0, self.numTotalSteps - self.learningStartPoint)     # delay epsilon decay until learning starts
+            self.epsilon = self.epsilonEnd + ((self.epsilonStart - self.epsilonEnd) * max(0, 1 -  (numLearningSteps / self.epsilonDecaySteps)))

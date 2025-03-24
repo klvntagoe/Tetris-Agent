@@ -30,18 +30,21 @@ exponentialMovingAverage = lambda val, avg, alpha: val if avg is None else (alph
 def runBatchEpisodes(
         env,
         agent,
-        numEpisodes: int = 1,
+        numTotalEpisodes: int = 1,
+        numTotalSteps: int = 100,
         train: bool = True,
         renderMode = None,
         timeStepDelay = None):
     totalStepsList = []
     totalRewardList = []
-    alpha = 0.01
+    alpha = 0.001
     totalStepsAvg = totalRewardAvg = totalLinesClearedAvg = None
     totalLinesClearedAggregate = 0
     start_time = time.time()
 
-    for episodeIndex in range(0, numEpisodes):
+    episodeIndex = 0
+    numStepsComleted = 0
+    while episodeIndex < numTotalEpisodes and numStepsComleted < numTotalSteps:  # min number of interactions between both
         totalSteps, totalReward, totalLinesCleared = runSingleEpisode(
                                                         env, 
                                                         agent,
@@ -53,7 +56,7 @@ def runBatchEpisodes(
         totalRewardList.append(totalReward)
         totalStepsAvg = exponentialMovingAverage(totalSteps, totalStepsAvg, alpha)
         totalRewardAvg = exponentialMovingAverage(totalReward, totalRewardAvg, alpha)
-        totalLinesClearedAvg = exponentialMovingAverage(totalLinesCleared, totalLinesCleared, alpha)
+        totalLinesClearedAvg = exponentialMovingAverage(totalLinesCleared, totalLinesClearedAvg, alpha)
         totalLinesClearedAggregate += totalLinesCleared
         
         end_time = time.time()
@@ -65,16 +68,19 @@ def runBatchEpisodes(
         print(f"Game Over!"
             + f" - e: {episodeIndex}\t"
             + f" - r: {totalReward}\t"
-            + f" - r_avg: {totalRewardAvg:.2f}\t"
+            + f" - r_avg: {totalRewardAvg:.4f}\t"
             + f" - T: {totalSteps}\t"
-            + f" - T_avg: {totalStepsAvg:.2f}\t"
+            + f" - T_avg: {totalStepsAvg:.4f}\t"
             + f" - lc: {totalLinesCleared}\t"
             + f" - lc_agg: {totalLinesClearedAggregate}\t"
-            + f" - lc_avg: {totalLinesClearedAvg:.2f}\t"
+            + f" - lc_avg: {totalLinesClearedAvg:.4f}\t"
             + f" - T_agent_total: {agent.numTotalSteps}\t"
             + f" - T_model_train: {agent.QFunction.numTrainingSteps}\t"
             + f" - eps: {agent.epsilon}\t"
             + f" - duration: {hours:02d}:{minutes:02d}:{seconds:05.2f}")
+        
+        episodeIndex += 1
+        numStepsComleted += totalSteps
 
     print("Batch episodes completed!")
     return (totalStepsList, totalRewardList)
@@ -113,7 +119,7 @@ def runSingleEpisode(
         totalSteps += 1
         totalReward += reward
         totalLinesCleared += info["lines_cleared"]
-        if not train:
+        if not train and renderMode is not None:
             print(f"e: {agent.numEpisodes}"
                   + f" - t: {totalSteps}"
                   + f" - epsilon: {agent.epsilon}"
