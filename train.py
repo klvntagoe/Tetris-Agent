@@ -12,32 +12,30 @@ import Utils
 debugParameters = { 
     # "renderMode": "human",
     "renderMode": None,
-    "numEpisodes": 1_000_000,
-    "numTotalSteps": 20_000_000,    #   must be greater than epsilonDecaySteps + learningStartPoint
+    "numEpisodes": 100_000,
+    "numTotalSteps": 10_000_000,    #   must be greater than epsilonDecaySteps + learningStartPoint
     "plotRollingLength": 1000,
 }
 
 hyperParameters = {
     "epsilonStart": 1,
     "epsilonEnd": 0.1,
-    "epsilonDecaySteps": 10_000_000,
+    "epsilonDecaySteps": 4_000_000,
     "learningRate": 0.001,
     "discountFactor": 0.99,
     "replayBufferCapacity": 1_000_000,
     "batchTransitionSampleSize": 32,
     "trainingFrequency": 4,
     "targetNetworkUpdateFrequency": 10_000,
-    "checkpointRate": 200_000,
+    "checkpointRate": 100_000,
     "learningStartPoint": 1_000_000,
 }
 
 def main():
-    if (len(sys.argv) < 2):
-        print("No model path provided")
-        return
-    
     seed = secrets.randbits(32)     # numpy seed needs to be between 0 and 2**32 - 1
-    modelPath = sys.argv[1]
+    modelPath = None
+    if (len(sys.argv) > 1):
+        modelPath = sys.argv[1]
 
     env: Tetris = gym.make(
         "tetris_gymnasium/Tetris", 
@@ -51,6 +49,7 @@ def main():
         numActions=env.action_space.n,
         randomActionFn=randomActionFn,
         train=True,
+        modelPath=modelPath,
         hyperParameters=hyperParameters)
 
     totalStepsList, totalRewardList = Utils.runBatchEpisodes(
