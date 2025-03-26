@@ -1,4 +1,5 @@
 from collections import deque, namedtuple
+from model.qcnn import Q_CNN
 from model.qnn import QNN
 import os
 import datetime
@@ -55,10 +56,9 @@ class ActionValueFunction:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-        numInputs = 216 # Todo: make this configurable
-        self.onlineNetwork = QNN(
-            numInputs=numInputs, 
-            numOutputs=numActions).to(QNN.device)
+        # numInputs = 216 # Todo: make this configurable
+        # self.onlineNetwork = QNN(numInputs=numInputs, numOutputs=numActions).to(QNN.device)
+        self.onlineNetwork = Q_CNN(numOutputs=numActions).to(QNN.device)
         
         self.train = train
         if self.train:
@@ -66,9 +66,8 @@ class ActionValueFunction:
                 self.onlineNetwork.parameters(), 
                 lr= learningRate, 
                 amsgrad=True)
-            self.targetNetwork = QNN(
-                numInputs=numInputs, 
-                numOutputs=numActions).to(QNN.device)
+            # self.targetNetwork = QNN(numInputs=numInputs, numOutputs=numActions).to(QNN.device)
+            self.targetNetwork = Q_CNN(numOutputs=numActions).to(QNN.device)
             self._hardUpdateTarget()
             self.targetNetworkUpdateFrequency = targetNetworkUpdateFrequency
             self.discountFactor = discountFactor
@@ -85,30 +84,19 @@ class ActionValueFunction:
         self.numUpdates = 0         # Number of calls to update state info
         self.numTrainingSteps = 0   # Number of optimizations
     
-    # Convert to a 20x10 + 4x4 = 216 length 1D tensor
-    def preProcessState(self, state):
-        board = state['board']
-        board = board[:20,4:14] # Remove padding
-        board[board != 0] = 1 # Set all non-empty cells to 1
-        flattenedBoard = board.astype(np.float32).flatten()
-        holder = state['holder']
-        holder[holder != 0] = 1
-        flattenedHolder = holder.astype(np.float32).flatten()
-        aggregate = np.concatenate((flattenedBoard, flattenedHolder))
-        return torch.tensor(aggregate, device=QNN.device, dtype=torch.float).unsqueeze(0)
     
     def evaluate(self, state):
         self.onlineNetwork.eval()   # Set the model to evaluation mode
         with torch.no_grad():
-            qValues = self.onlineNetwork(self.preProcessState(state));
+            qValues = self.onlineNetwork(Q_CNN.preProcess(state));
         return qValues.cpu().numpy();
 
     def update(self, state, action, reward, nextState, runTDUpdate):
         if not self.train:
             return
-        state = self.preProcessState(state)
+        state = Q_CNN.preProcess(state)
         action = torch.tensor([[action]], device=QNN.device)
-        nextState = self.preProcessState(nextState) if nextState is not None else None
+        nextState = Q_CNN.preProcess(nextState) if nextState is not None else None
         reward = torch.tensor([reward], device=QNN.device)
 
         self.replayBuffer.push(

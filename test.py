@@ -7,11 +7,11 @@ import sys
 import Utils
 
 debugParameters = { 
-    "renderMode": "ansi",
-    "timeStepDelaySecs": 0.5,
-    "numEpisodes": 1,
-    "numTotalSteps": 1_000,
-    "plotRollingLength": 100
+    #"renderMode": "ansi",
+    #"timeStepDelaySecs": 0.5,
+    "numEpisodes": 100,
+    "numTotalSteps": 100_000,
+    "plotRollingLength": 10
 }
 
 hyperParameters = {
