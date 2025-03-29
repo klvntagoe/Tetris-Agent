@@ -37,7 +37,7 @@ def runBatchEpisodes(
         timeStepDelay = None):
     totalStepsList = []
     totalRewardList = []
-    alpha = 0.001
+    alpha = 0.01
     totalStepsAvg = totalRewardAvg = totalLinesClearedAvg = None
     totalLinesClearedAggregate = 0
     start_time = time.time()

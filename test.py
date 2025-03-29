@@ -48,12 +48,11 @@ def main():
                                         train=False,
                                         renderMode=renderMode,
                                         timeStepDelay=debugParameters.get("timeStepDelaySecs", 0))
+    env.close()
 
     # Visualization
     pairs = [("Episode lengths", totalStepsList), ("Episode rewards",totalRewardList)]
     Utils.plotBatchResults(pairs, debugParameters["plotRollingLength"])
-
-    env.close()
 
 if __name__ == "__main__":
     main()

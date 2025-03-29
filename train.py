@@ -13,7 +13,7 @@ debugParameters = {
     # "renderMode": "human",
     "renderMode": None,
     "numEpisodes": 100_000,
-    "numTotalSteps": 10_000_000,    #   must be greater than epsilonDecaySteps + learningStartPoint
+    "numTotalSteps": 10_000_000,    # > epsilonDecaySteps + learningStartPoint
     "plotRollingLength": 1000,
 }
 
@@ -24,7 +24,7 @@ hyperParameters = {
     "learningRate": 0.001,
     "discountFactor": 0.99,
     "replayBufferCapacity": 1_000_000,
-    "batchTransitionSampleSize": 32,
+    "batchTransitionSampleSize": 512,
     "trainingFrequency": 4,
     "targetNetworkUpdateFrequency": 10_000,
     "checkpointRate": 100_000,
@@ -58,13 +58,12 @@ def main():
                                         debugParameters["numEpisodes"],
                                         debugParameters["numTotalSteps"],
                                         train=True)
-
+    agent.QFunction.close()
+    env.close()
 
     # Visualization
     pairs = [("Episode lengths", totalStepsList), ("Episode rewards",totalRewardList)]
     Utils.plotBatchResults(pairs, debugParameters["plotRollingLength"])
-
-    env.close()
 
 if __name__ == "__main__":
     main()

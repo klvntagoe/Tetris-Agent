@@ -1,5 +1,5 @@
 from collections import deque, namedtuple
-from model.qcnn import Q_CNN
+from model.qcnn import Q_CNN_1, Q_CNN_2
 from model.qnn import QNN
 import os
 import datetime
@@ -58,7 +58,7 @@ class ActionValueFunction:
 
         # numInputs = 216 # Todo: make this configurable
         # self.onlineNetwork = QNN(numInputs=numInputs, numOutputs=numActions).to(QNN.device)
-        self.onlineNetwork = Q_CNN(numOutputs=numActions).to(QNN.device)
+        self.onlineNetwork = Q_CNN_2(numOutputs=numActions).to(QNN.device)
         
         self.train = train
         if self.train:
@@ -67,7 +67,7 @@ class ActionValueFunction:
                 lr= learningRate, 
                 amsgrad=True)
             # self.targetNetwork = QNN(numInputs=numInputs, numOutputs=numActions).to(QNN.device)
-            self.targetNetwork = Q_CNN(numOutputs=numActions).to(QNN.device)
+            self.targetNetwork = Q_CNN_2(numOutputs=numActions).to(QNN.device)
             self._hardUpdateTarget()
             self.targetNetworkUpdateFrequency = targetNetworkUpdateFrequency
             self.discountFactor = discountFactor
@@ -88,15 +88,15 @@ class ActionValueFunction:
     def evaluate(self, state):
         self.onlineNetwork.eval()   # Set the model to evaluation mode
         with torch.no_grad():
-            qValues = self.onlineNetwork(Q_CNN.preProcess(state));
+            qValues = self.onlineNetwork(Q_CNN_2.preProcess(state));
         return qValues.cpu().numpy();
 
     def update(self, state, action, reward, nextState, runTDUpdate):
         if not self.train:
             return
-        state = Q_CNN.preProcess(state)
+        state = Q_CNN_2.preProcess(state)
         action = torch.tensor([[action]], device=QNN.device)
-        nextState = Q_CNN.preProcess(nextState) if nextState is not None else None
+        nextState = Q_CNN_2.preProcess(nextState) if nextState is not None else None
         reward = torch.tensor([reward], device=QNN.device)
 
         self.replayBuffer.push(
@@ -114,7 +114,10 @@ class ActionValueFunction:
                 self._hardUpdateTarget()
             if self.numTrainingSteps % self.checkpointRate == 0:      # save after periodic intervals of optimization steps
                 self._saveModel()
-
+    def close(self):
+        if self.train:
+            self._saveModel()
+    
     def _optimize(self):
         batchSize = self.batchTransitionSampleSize
         if len(self.replayBuffer) < batchSize:
