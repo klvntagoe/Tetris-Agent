@@ -1,4 +1,5 @@
 from ActionValue import ActionValueFunction
+from torch.utils.tensorboard import SummaryWriter
 from typing import Callable
 import numpy as np
 import random as rand
@@ -9,6 +10,7 @@ class DiscreteEpsilonGreedyAgent:
             seed: int,
             numActions: int,
             randomActionFn: Callable[[], int],
+            writer: SummaryWriter,
             modelPath: str = None,
             train: bool = True,
             hyperParameters:dict = None):
@@ -16,7 +18,7 @@ class DiscreteEpsilonGreedyAgent:
         if seed is not None:
             rand.seed(seed)
             np.random.seed(seed)
-
+        self.writer = writer
         self.hyperParameters = hyperParameters
         self.NumActions = numActions
         self.selectRandomAction = randomActionFn
@@ -26,6 +28,7 @@ class DiscreteEpsilonGreedyAgent:
             self.QFunction = ActionValueFunction(
                 seed, 
                 self.NumActions, 
+                writer=writer,
                 modelPath=modelPath,
                 train=True,
                 learningRate=hyperParameters["learningRate"],
@@ -40,6 +43,7 @@ class DiscreteEpsilonGreedyAgent:
             self.QFunction = ActionValueFunction(
                 seed, 
                 self.NumActions, 
+                writer=writer,
                 modelPath=modelPath,
                 train=False)
             
@@ -82,10 +86,18 @@ class DiscreteEpsilonGreedyAgent:
     
     def learn(self, state, action, reward, nextState):
         if self.numTotalSteps >= self.learningStartPoint:
-            self.QFunction.update(state, action, reward, nextState, True)
+            lossValues = self.QFunction.update(state, action, reward, nextState, True)
+            if lossValues is not None:
+                tdError, avgQValues = lossValues
+                self.logLearningLoss(tdError, avgQValues)
         else:
-            self.QFunction.update(state, action, reward, nextState, False)
+            _ = self.QFunction.update(state, action, reward, nextState, False)
 
         if self.epsilonDecay:
             numLearningSteps = max(0, self.numTotalSteps - self.learningStartPoint)     # delay epsilon decay until learning starts
             self.epsilon = self.epsilonEnd + ((self.epsilonStart - self.epsilonEnd) * max(0, 1 -  (numLearningSteps / self.epsilonDecaySteps)))
+    
+    def logLearningLoss(self, tdError, avgQValues):
+        if self.numTotalSteps % 100 == 0:
+            self.writer.add_scalar("Losses/tdError", tdError, self.numTotalSteps)
+            self.writer.add_scalar("Losses/qValues_avg", avgQValues, self.numTotalSteps)

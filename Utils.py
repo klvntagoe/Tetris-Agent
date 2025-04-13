@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+from torch.utils.tensorboard import SummaryWriter
 from typing import List, Tuple
 import numpy as np
 import time
@@ -30,6 +31,7 @@ exponentialMovingAverage = lambda val, avg, alpha: val if avg is None else (alph
 def runBatchEpisodes(
         env,
         agent,
+        writer: SummaryWriter,
         numTotalEpisodes: int = 1,
         numTotalSteps: int = 100,
         train: bool = True,
@@ -52,6 +54,9 @@ def runBatchEpisodes(
                                                         renderMode,
                                                         timeStepDelay)
         
+        writer.add_scalar('Episodes/NumSteps', totalSteps, episodeIndex)
+        writer.add_scalar('Episodes/Return', totalReward, episodeIndex)
+
         totalStepsList.append(totalSteps)
         totalRewardList.append(totalReward)
         totalStepsAvg = exponentialMovingAverage(totalSteps, totalStepsAvg, alpha)

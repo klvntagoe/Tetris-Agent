@@ -13,3 +13,4 @@ dummy.py
 Journal.md
 model/*
 !model/*.py
+runs/*

@@ -1,6 +1,7 @@
 from agent import DiscreteEpsilonGreedyAgent
 from matplotlib import pyplot as plt
 from tetris_gymnasium.envs import Tetris
+from torch.utils.tensorboard import SummaryWriter
 from typing import Callable
 import gymnasium as gym
 import numpy as np
@@ -36,7 +37,9 @@ def main():
     modelPath = None
     if (len(sys.argv) > 1):
         modelPath = sys.argv[1]
-
+    
+    writer = SummaryWriter(comment='_train', purge_step=10_000, max_queue=1_000)
+    #writer.add_hparams(hyperParameters)
     env: Tetris = gym.make(
         "tetris_gymnasium/Tetris", 
         render_mode=debugParameters["renderMode"])
@@ -48,18 +51,21 @@ def main():
         seed=seed,
         numActions=env.action_space.n,
         randomActionFn=randomActionFn,
+        writer=writer,
         train=True,
         modelPath=modelPath,
         hyperParameters=hyperParameters)
 
     totalStepsList, totalRewardList = Utils.runBatchEpisodes(
                                         env, 
-                                        agent, 
+                                        agent,
+                                        writer,
                                         debugParameters["numEpisodes"],
-                                        debugParameters["numTotalSteps"],
+                                        debugParameters["numTotalSteps"], 
                                         train=True)
     agent.QFunction.close()
     env.close()
+    writer.close()
 
     # Visualization
     pairs = [("Episode lengths", totalStepsList), ("Episode rewards",totalRewardList)]

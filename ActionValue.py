@@ -1,6 +1,7 @@
 from collections import deque, namedtuple
 from model.qcnn import Q_CNN_1, Q_CNN_2
 from model.qnn import QNN
+from torch.utils.tensorboard import SummaryWriter
 import os
 import datetime
 import numpy as np
@@ -37,6 +38,7 @@ class ActionValueFunction:
             self, 
             seed: int,
             numActions: int,
+            writer: SummaryWriter,
             modelPath: str = None,
             train: bool = True,
             learningRate = 1e-2,
@@ -55,7 +57,7 @@ class ActionValueFunction:
             torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-
+        self.writer = writer
         # numInputs = 216 # Todo: make this configurable
         # self.onlineNetwork = QNN(numInputs=numInputs, numOutputs=numActions).to(QNN.device)
         self.onlineNetwork = Q_CNN_2(numOutputs=numActions).to(QNN.device)
@@ -93,7 +95,7 @@ class ActionValueFunction:
 
     def update(self, state, action, reward, nextState, runTDUpdate):
         if not self.train:
-            return
+            return None
         state = Q_CNN_2.preProcess(state)
         action = torch.tensor([[action]], device=QNN.device)
         nextState = Q_CNN_2.preProcess(nextState) if nextState is not None else None
@@ -106,14 +108,16 @@ class ActionValueFunction:
             reward)
         self.numUpdates += 1
 
+        tdLossAvgQValuePair = None
         if runTDUpdate:
             if self.numUpdates % self.trainingFrequency == 0:
-                self._optimize()
+                tdLossAvgQValuePair = self._optimize()
                 self.numTrainingSteps += 1
             if self.numTrainingSteps % self.targetNetworkUpdateFrequency == 0:      # save after periodic intervals of optimization steps
                 self._hardUpdateTarget()
             if self.numTrainingSteps % self.checkpointRate == 0:      # save after periodic intervals of optimization steps
                 self._saveModel()
+        return tdLossAvgQValuePair
     def close(self):
         if self.train:
             self._saveModel()
@@ -159,6 +163,7 @@ class ActionValueFunction:
         tdHuberError.backward()
         # torch.nn.utils.clip_grad_norm_(self.onlineNetwork.parameters(), 100)    # Clip the gradient in-place
         self.optimizer.step()
+        return (tdHuberError.item(), stateActionValues.mean().item())
     
     def _hardUpdateTarget(self):
         self.targetNetwork.load_state_dict(self.onlineNetwork.state_dict())
